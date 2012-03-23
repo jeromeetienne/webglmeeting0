@@ -1,0 +1,257 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+<link rel="canonical" href="{{ room_link }}"/>
+<script src="/_ah/channel/jsapi"></script>
+<!-- type="text/javascript">
+  (function() {
+    var po = document.createElement('script'); po.type = 'text/javascript'; po.async = true;
+    po.src = 'https://apis.google.com/js/plusone.js';
+    var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(po, s);
+  })();
+-->
+<style type="text/css">
+  a:link { color: #ffffff; }
+  a:visited {color: #ffffff; }  
+  html, body {
+    background-color: #000000;
+    height: 100%;
+    font-family:Verdana, Arial, Helvetica, sans-serif;
+  }
+  body {        
+    margin: 0;
+    padding: 0;    
+  }
+  #container {
+    position: relative;
+    min-height: 100%;
+    width: 100%;
+    margin: 0px auto;
+  }
+  #local {    
+    spacing: 4px;
+    float: left;  
+    width: 50%;
+    -webkit-transform: scale(-1, 1);
+  }
+  #remote {
+    spacing: 4px;    
+    float: right;  
+    width: 50%;
+  }   
+  #footer { 
+    spacing: 4px;
+    position: absolute;  
+    bottom: 0;
+    width: 100%;
+    height: 28px;
+    background-color: #3F3F3F; 
+    color: rgb(255, 255, 255);
+    font-size:13px; font-weight: bold;
+    line-height: 28px;
+    text-align: center;
+  }
+  #hangup {
+   font-size:13px; font-weight:bold;
+   color:#FFFFFF;
+   width:128px;
+   height:24px;
+   background-color:#808080;
+   border-style:solid;
+   border-color:#FFFFFF;
+   margin:2px;
+  }
+  #logo {
+    display: block;
+    top:4;
+    right:4;
+    position:absolute;
+    float:right;    
+    #opacity: 0.8;    
+  }
+ 
+</style>
+</head>
+<body>
+<script type="text/javascript">
+  var localVideo;
+  var remoteVideo;
+  var localStream;  
+  var channel;
+  var channelReady = false;
+  var pc;
+  var initiator = {{ initiator }};
+  var started = false; 
+
+  initialize = function() {
+    console.log("Initializing; room={{ room_key }}.");
+    localVideo = document.getElementById("localVideo");
+    remoteVideo = document.getElementById("remoteVideo");
+    status = document.getElementById("status");
+    resetStatus();
+    openChannel();
+    getUserMedia();
+    //createPeerConnection();    
+  }
+
+  openChannel = function() {
+    console.log("Opening channel.");
+    var channel = new goog.appengine.Channel('{{ token }}');
+    var handler = {
+      'onopen': onChannelOpened,
+      'onmessage': onChannelMessage,
+      'onerror': onChannelError,
+      'onclose': onChannelClosed
+    };
+    socket = channel.open(handler);    
+  }
+  
+  resetStatus = function() {
+    if (!initiator) {
+      setStatus("Waiting for someone to join: <a href=\"{{ room_link }}\">{{ room_link }}</a>");
+    } else {
+      setStatus("Initializing...");
+    }
+  }
+
+  getUserMedia = function() {
+    try { 
+      navigator.webkitGetUserMedia("video,audio", onUserMediaSuccess,
+                                   onUserMediaError);
+      console.log("Requested access to local media.");
+    } catch (e) {
+      console.log("getUserMedia error.");    
+    }
+  }
+  
+  createPeerConnection = function() {
+    pc = new webkitPeerConnection("STUN stun.l.google.com:19302",
+                                  onSignalingMessage);  
+    pc.onconnecting = onSessionConnecting;
+    pc.onopen = onSessionOpened;
+    pc.onaddstream = onRemoteStreamAdded;
+    pc.onremovestream = onRemoteStreamRemoved;    
+  }
+    
+  maybeStart = function() {
+    if (!started && localStream && channelReady) {      
+      setStatus("Connecting..."); 
+      console.log("Creating PeerConnection.");
+      createPeerConnection();  
+      console.log("Adding local stream.");      
+      pc.addStream(localStream);
+      started = true;
+    }
+  }
+     
+  setStatus = function(state) {
+    footer.innerHTML = state;
+  }
+  
+  sendMessage = function(path, message) {
+    console.log('C->S: ' + message); 
+    path += '?r={{ room_key }}' + '&u={{ me }}';
+    var xhr = new XMLHttpRequest();
+    xhr.open('POST', path, true);
+    xhr.send(message);
+  }
+  
+  onChannelOpened = function() {    
+    console.log('Channel opened.');
+    channelReady = true;
+    if (initiator) maybeStart();
+  }
+  onChannelMessage = function(message) {
+    console.log('S->C: ' + message.data); 
+    if (message.data != 'BYE') {
+      if (message.data.indexOf("\"ERROR\"", 0) == -1) {        
+        if (!initiator && !started) maybeStart();
+        pc.processSignalingMessage(message.data);    
+      }
+    } else {
+      console.log('Session terminated.');    
+      remoteVideo.src = null;
+      remoteVideo.style.opacity = 0;
+      initiator = 0;
+      started = false;
+      resetStatus();
+    }
+  }
+  onChannelError = function() {    
+    console.log('Channel error.');
+  }
+  onChannelClosed = function() {    
+    console.log('Channel closed.');
+  }
+    
+  onUserMediaSuccess = function(stream) {
+    console.log("User has granted access to local media.");
+    var url = webkitURL.createObjectURL(stream);
+    localVideo.style.opacity = 1;
+    localVideo.src = url;
+    localStream = stream;
+    if (initiator) maybeStart();    
+  }
+  onUserMediaError = function(error) {
+    console.log("Failed to get access to local media. Error code was " + error.code);
+    alert("Failed to get access to local media. Error code was " + error.code + ".");    
+  }
+  
+  onSignalingMessage = function(message) {      
+    sendMessage('/message', message);
+  }
+  onSessionConnecting = function(message) {      
+    console.log("Session connecting.");
+  }
+  onSessionOpened = function(message) {      
+    console.log("Session opened.");
+  }
+  onRemoteStreamAdded = function(event) {   
+    console.log("Remote stream added.");
+    var url = webkitURL.createObjectURL(event.stream);
+    remoteVideo.style.opacity = 1;
+    remoteVideo.src = url;
+    setStatus("<input type=\"button\" id=\"hangup\" value=\"Hang up\" onclick=\"onHangup()\" />");
+  }
+  onRemoteStreamRemoved = function(event) {   
+    console.log("Remote stream removed.");
+  }
+  
+  onHangup = function() {
+    console.log("Hanging up.");    
+    localVideo.style.opacity = 0;    
+    remoteVideo.style.opacity = 0;    
+    pc.close();  
+    // will trigger BYE from server
+    socket.close(); 
+    pc = null;    
+    socket = null;
+    setStatus("You have left the call. <a href=\"{{ room_link }}\">Click here</a> to rejoin.");    
+  }
+  
+  setTimeout(initialize, 1);  
+</script>
+<div id="container">
+  <div id="local">
+    <video
+     width="100%" height="100%" id="localVideo" autoplay="autoplay"
+     onclick="onClick()" style="opacity: 0;
+     -webkit-transition-property: opacity;
+     -webkit-transition-duration: 2s;">
+    </video>
+  </div>
+  <div id="remote">
+    <video width="100%" height="100%" id="remoteVideo" autoplay="autoplay"
+     style="opacity: 0; 
+     -webkit-transition-property: opacity;
+     -webkit-transition-duration: 2s;">
+    </video>
+  </div>
+  <div id="footer">    
+  </div>
+</div>
+<a href="http://www.webrtc.org">
+<img id="logo" alt="WebRTC" src="images/webrtc_black_20p.png">    
+</a>
+</body>
+</html>

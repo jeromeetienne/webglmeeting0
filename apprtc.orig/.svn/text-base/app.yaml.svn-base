@@ -1,0 +1,21 @@
+application: apprtc
+version: 4
+runtime: python
+api_version: 1
+
+handlers:
+- url: /html
+  static_dir: html
+
+- url: /images
+  static_dir: images 
+
+- url: /js
+  static_dir: js
+
+- url: /.*
+  script: apprtc.py
+  secure: always
+  
+inbound_services:
+- channel_presence
