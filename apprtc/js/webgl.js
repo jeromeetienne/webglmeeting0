@@ -1,8 +1,10 @@
 var stats, scene, renderer;
 var camera, tvset;
 
-//if( !init() )	animate();
-console.log("tv js")
+setTimeout(function(){
+	if( !init() )	animate();
+}, 2);
+//console.log("webgl.js loaded")
 
 // init the scene
 function init(){
@@ -65,15 +67,24 @@ function init(){
 //////////////////////////////////////////////////////////////////////////////////
 //		Create tvset1 on the right					//
 //////////////////////////////////////////////////////////////////////////////////
-	video1		= document.createElement('video');
-	video1.width	= 320;
-	video1.height	= 240;
-	video1.volume	= 0;
-	video1.autoplay	= true;
-	video1.loop	= true;
-	video1.src	= "videos/sintel.ogv";
+	if( false ){
+		video1		= document.createElement('video');
+		video1.width	= 320;
+		video1.height	= 240;
+		video1.volume	= 0;
+		video1.autoplay	= true;
+		video1.loop	= true;
+		video1.src	= "videos/sintel.ogv";
+	}else{
+		video1	= document.getElementById('localVideo');
+	}
 	video1Texture	= new THREE.Texture( video1 );
 	video1Texture.needsUpdate = true;
+	// do a flipX in the video1Texture
+	video1Texture.repeat.set(-1, 1);
+	video1Texture.offset.set( 1, 0);
+
+
 
 	var tvset1	= new THREE.Object3D();
 	tvset1.position.x	= -1.6;
@@ -109,14 +120,17 @@ function init(){
 //////////////////////////////////////////////////////////////////////////////////
 //		Create tvset2 on the left					//
 //////////////////////////////////////////////////////////////////////////////////
-
-	video2		= document.createElement('video');
-	video2.width	= 320;
-	video2.height	= 240;
-	video2.volume	= 0;
-	video2.autoplay	= true;
-	video2.loop	= true;
-	video2.src	= "videos/sintel.ogv";
+	if( false ){
+		video2		= document.createElement('video');
+		video2.width	= 320;
+		video2.height	= 240;
+		video2.volume	= 0;
+		video2.autoplay	= true;
+		video2.loop	= true;
+		video2.src	= "videos/sintel.ogv";
+	}else{
+		video2	= document.getElementById('remoteVideo');		
+	}
 	video2Texture	= new THREE.Texture( video2 );
 
 	var tvset2	= new THREE.Object3D();
@@ -126,7 +140,7 @@ function init(){
 	tvset2.rotation.y	= -Math.PI/4;
 	tvset2.scale.multiplyScalar(0.9);
 	scene.add(tvset2);
-	var url	= 'models/Old Television Set 01/models/Old Television Set 01.dae';
+	var url	= 'models/OldTelevisionSet01/models/OldTelevisionSet01.dae';
 	new THREE.ColladaLoader().load(url, function(collada){
 		var object3d		= collada.scene;
 		object3d.scale.multiplyScalar(1/200);
