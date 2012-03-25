@@ -13,6 +13,15 @@ handlers:
 - url: /js
   static_dir: js
 
+- url: /vendor
+  static_dir: vendor
+
+- url: /videos
+  static_dir: videos
+
+- url: /models
+  static_dir: models
+
 - url: /.*
   script: apprtc.py
   secure: always
