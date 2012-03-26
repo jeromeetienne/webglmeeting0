@@ -177,7 +177,7 @@ class MainPage(webapp.RequestHandler):
       logging.info('Room ' + room_key + ' is full');
       return
             
-    room_link = 'https://apprtc.appspot.com/?r=' + room_key
+    room_link = 'https://webglmeeting.appspot.com/?r=' + room_key
     if debug:
         room_link += ('&debug=' + debug)
     token = channel.create_channel(room_key + '/' + user)

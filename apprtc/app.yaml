@@ -16,9 +16,6 @@ handlers:
 - url: /vendor
   static_dir: vendor
 
-- url: /videos
-  static_dir: videos
-
 - url: /models
   static_dir: models
 

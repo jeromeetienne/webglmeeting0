@@ -12,40 +12,44 @@
 -->
 <style type="text/css">
   a:link { color: #ffffff; }
-  a:visited {color: #ffffff; }  
+  a:visited {color: #ffffff; }
   html, body {
     background-color: #000000;
     height: 100%;
     font-family:Verdana, Arial, Helvetica, sans-serif;
   }
-  body {        
+  body {
     margin: 0;
-    padding: 0;    
+    padding: 0;
   }
   #container {
     position: relative;
-    min-height: 100%;
+    /* jme- removed the height */
+/*    min-height: 100%;
+*/
     width: 100%;
     margin: 0px auto;
   }
-  #local {    
+  #local {
+    display: none;	/* jme- hide <video> */
     spacing: 4px;
-    float: left;  
+    float: left;
     width: 50%;
     -webkit-transform: scale(-1, 1);
   }
   #remote {
-    spacing: 4px;    
-    float: right;  
-    width: 50%;
-  }   
-  #footer { 
+    display: none;	/* jme- hide <video> */
     spacing: 4px;
-    position: absolute;  
+    float: right;
+    width: 50%;
+  }
+  #footer {
+    spacing: 4px;
+    position: absolute;
     bottom: 0;
     width: 100%;
     height: 28px;
-    background-color: #3F3F3F; 
+    background-color: #3F3F3F;
     color: rgb(255, 255, 255);
     font-size:13px; font-weight: bold;
     line-height: 28px;
@@ -66,21 +70,22 @@
     top:4;
     right:4;
     position:absolute;
-    float:right;    
-    #opacity: 0.8;    
-  } 
+    float:right;
+    #opacity: 0.8;
+  }
+
 </style>
 </head>
 <body>
 <script type="text/javascript">
   var localVideo;
   var remoteVideo;
-  var localStream;  
+  var localStream;
   var channel;
   var channelReady = false;
   var pc;
   var initiator = {{ initiator }};
-  var started = false; 
+  var started = false;
 
   initialize = function() {
     console.log("Initializing; room={{ room_key }}.");
@@ -90,7 +95,7 @@
     resetStatus();
     openChannel();
     getUserMedia();
-    //createPeerConnection();    
+    //createPeerConnection();
   }
 
   openChannel = function() {
@@ -102,9 +107,9 @@
       'onerror': onChannelError,
       'onclose': onChannelClosed
     };
-    socket = channel.open(handler);    
+    socket = channel.open(handler);
   }
-  
+
   resetStatus = function() {
     if (!initiator) {
       setStatus("Waiting for someone to join: <a href=\"{{ room_link }}\">{{ room_link }}</a>");
@@ -114,61 +119,76 @@
   }
 
   getUserMedia = function() {
-    try { 
+    try {
       navigator.webkitGetUserMedia("video,audio", onUserMediaSuccess,
                                    onUserMediaError);
       console.log("Requested access to local media.");
     } catch (e) {
-      console.log("getUserMedia error.");    
+      alert("webkitGetUserMedia() failed. Does your browser support WebRTC?");
+      console.log("webkitGetUserMedia failed with exception: " + e.message);
     }
   }
-  
+
   createPeerConnection = function() {
-    pc = new webkitPeerConnection("STUN stun.l.google.com:19302",
-                                  onSignalingMessage);  
+    try {
+      pc = new webkitDeprecatedPeerConnection("{{ pc_config }}",
+                                              onSignalingMessage);
+      console.log("Created webkitDeprecatedPeerConnnection with config \"{{ pc_config }}\".");
+    } catch (e) {
+      console.log("Failed to create webkitDeprecatedPeerConnection, exception: " + e.message);
+      try {
+        pc = new webkitPeerConnection("{{ pc_config }}",
+                                      onSignalingMessage);
+        console.log("Created webkitPeerConnnection with config \"{{pc_config}}\".");
+      } catch (e) {
+        console.log("Failed to create webkitPeerConnection, exception: " + e.message);
+        alert("Cannot create PeerConnection object; tried webkitPeerConnection and webkitDeprecatedPeerConnection");
+        return;
+      }
+    }
     pc.onconnecting = onSessionConnecting;
     pc.onopen = onSessionOpened;
     pc.onaddstream = onRemoteStreamAdded;
-    pc.onremovestream = onRemoteStreamRemoved;    
+    pc.onremovestream = onRemoteStreamRemoved;
   }
-    
+
   maybeStart = function() {
-    if (!started && localStream && channelReady) {      
-      setStatus("Connecting..."); 
+    if (!started && localStream && channelReady) {
+      setStatus("Connecting...");
       console.log("Creating PeerConnection.");
-      createPeerConnection();  
-      console.log("Adding local stream.");      
+      createPeerConnection();
+      console.log("Adding local stream.");
       pc.addStream(localStream);
       started = true;
     }
   }
-     
+
   setStatus = function(state) {
     footer.innerHTML = state;
   }
-  
+
   sendMessage = function(path, message) {
-    console.log('C->S: ' + message); 
+    console.log('C->S: ' + message);
     path += '?r={{ room_key }}' + '&u={{ me }}';
     var xhr = new XMLHttpRequest();
     xhr.open('POST', path, true);
     xhr.send(message);
   }
-  
-  onChannelOpened = function() {    
+
+  onChannelOpened = function() {
     console.log('Channel opened.');
     channelReady = true;
     if (initiator) maybeStart();
   }
   onChannelMessage = function(message) {
-    console.log('S->C: ' + message.data); 
+    console.log('S->C: ' + message.data);
     if (message.data != 'BYE') {
-      if (message.data.indexOf("\"ERROR\"", 0) == -1) {        
+      if (message.data.indexOf("\"ERROR\"", 0) == -1) {
         if (!initiator && !started) maybeStart();
-        pc.processSignalingMessage(message.data);    
+        pc.processSignalingMessage(message.data);
       }
     } else {
-      console.log('Session terminated.');    
+      console.log('Session terminated.');
       remoteVideo.src = null;
       remoteVideo.style.opacity = 0;
       initiator = 0;
@@ -176,59 +196,59 @@
       resetStatus();
     }
   }
-  onChannelError = function() {    
+  onChannelError = function() {
     console.log('Channel error.');
   }
-  onChannelClosed = function() {    
+  onChannelClosed = function() {
     console.log('Channel closed.');
   }
-    
+
   onUserMediaSuccess = function(stream) {
     console.log("User has granted access to local media.");
     var url = webkitURL.createObjectURL(stream);
     localVideo.style.opacity = 1;
     localVideo.src = url;
     localStream = stream;
-    if (initiator) maybeStart();    
+    if (initiator) maybeStart();
   }
   onUserMediaError = function(error) {
     console.log("Failed to get access to local media. Error code was " + error.code);
-    alert("Failed to get access to local media. Error code was " + error.code + ".");    
+    alert("Failed to get access to local media. Error code was " + error.code + ".");
   }
-  
-  onSignalingMessage = function(message) {      
+
+  onSignalingMessage = function(message) {
     sendMessage('/message', message);
   }
-  onSessionConnecting = function(message) {      
+  onSessionConnecting = function(message) {
     console.log("Session connecting.");
   }
-  onSessionOpened = function(message) {      
+  onSessionOpened = function(message) {
     console.log("Session opened.");
   }
-  onRemoteStreamAdded = function(event) {   
+  onRemoteStreamAdded = function(event) {
     console.log("Remote stream added.");
     var url = webkitURL.createObjectURL(event.stream);
     remoteVideo.style.opacity = 1;
     remoteVideo.src = url;
     setStatus("<input type=\"button\" id=\"hangup\" value=\"Hang up\" onclick=\"onHangup()\" />");
   }
-  onRemoteStreamRemoved = function(event) {   
+  onRemoteStreamRemoved = function(event) {
     console.log("Remote stream removed.");
   }
-  
+
   onHangup = function() {
-    console.log("Hanging up.");    
-    localVideo.style.opacity = 0;    
-    remoteVideo.style.opacity = 0;    
-    pc.close();  
+    console.log("Hanging up.");
+    localVideo.style.opacity = 0;
+    remoteVideo.style.opacity = 0;
+    pc.close();
     // will trigger BYE from server
-    socket.close(); 
-    pc = null;    
+    socket.close();
+    pc = null;
     socket = null;
-    setStatus("You have left the call. <a href=\"{{ room_link }}\">Click here</a> to rejoin.");    
+    setStatus("You have left the call. <a href=\"{{ room_link }}\">Click here</a> to rejoin.");
   }
-  
-  setTimeout(initialize, 1);  
+
+  setTimeout(initialize, 1);
 </script>
 <!-- three.js container -->
 <div id="containerThreejs"></div>
@@ -243,16 +263,16 @@
   </div>
   <div id="remote">
     <video width="100%" height="100%" id="remoteVideo" autoplay="autoplay"
-     style="opacity: 0; 
+     style="opacity: 0;
      -webkit-transition-property: opacity;
      -webkit-transition-duration: 2s;">
     </video>
   </div>
-  <div id="footer">    
+  <div id="footer">
   </div>
 </div>
 <a href="http://www.webrtc.org">
-	<img id="logo" alt="WebRTC" src="images/webrtc_black_20p.png">    
+<img id="logo" alt="WebRTC" src="images/webrtc_black_20p.png">
 </a>
 
 <!-- include the js for the tv -->
